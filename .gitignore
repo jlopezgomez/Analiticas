@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+
+.env
+.streamlit/secrets.toml
+
+.venv/
+venv/
+
+# Copia suelta del propio repo
+Analiticas/

@@ -61,14 +61,31 @@ def procesar_entrada():
 
     with tab_camara:
         st.markdown("**Haz una foto a tu analítica con la cámara**")
+        st.caption(
+            "📱 En el móvil, pulsa el botón y elige **Cámara**: se abrirá la cámara del teléfono "
+            "a pantalla completa para que puedas encuadrar y enfocar bien."
+        )
         st.caption("💡 Consejos: buena iluminación, sin reflejos, texto enfocado y la hoja plana.")
-        imagen_analitica = st.camera_input(
-            "Capturar analítica",
-            key="analitica_camara",
+        imagen_analitica = st.file_uploader(
+            "Hacer foto o elegir imagen:",
+            type=["jpg", "jpeg", "png"],
+            key="analitica_foto",
             help="Apunta la cámara a tu analítica y asegúrate de que el texto sea legible."
         )
+
+        imagen_webcam = None
+        # Un toggle y no un expander: el expander monta la cámara aunque esté cerrado y pide permiso al cargar
+        if st.toggle("💻 Usar la cámara del ordenador (webcam)", key="usar_webcam"):
+            imagen_webcam = st.camera_input(
+                "Capturar analítica",
+                key="analitica_camara",
+                help="Apunta la cámara a tu analítica y asegúrate de que el texto sea legible."
+            )
+
+        imagen_analitica = imagen_analitica or imagen_webcam
         if imagen_analitica:
-            st.success("✅ Foto capturada correctamente.")
+            st.image(imagen_analitica, caption="Revisa que el texto se lea bien")
+            st.success("✅ Foto cargada correctamente.")
 
     st.markdown("---")
 
@@ -167,6 +184,12 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
         barra.progress(60)
         resultado = evaluar_analitica(texto_analitica, texto_previo)
 
+        if resultado.nivel_urgencia_global == "No determinado":
+            estado.empty()
+            barra.empty()
+            mostrar_error_analisis(resultado.resumen_general)
+            return
+
         estado.text("📝 Generando informe...")
         barra.progress(85)
         pdf_bytes = generar_informe_pdf(resultado)
@@ -176,6 +199,19 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
         barra.empty()
 
         mostrar_resultados(resultado, pdf_bytes)
+
+
+def mostrar_error_analisis(detalle: str):
+    detalle_lower = detalle.lower()
+    if "api_key" in detalle_lower or "credentials" in detalle_lower or "401" in detalle_lower:
+        st.error(
+            "❌ **No se pudo analizar:** la aplicación no tiene configurada una clave de OpenAI válida. "
+            "Si eres el administrador, revisa `OPENAI_API_KEY` en los Secrets de la app."
+        )
+    else:
+        st.error("❌ **No se pudo analizar la analítica.** Inténtalo de nuevo en unos minutos.")
+    with st.expander("Ver detalle técnico"):
+        st.code(detalle)
 
 
 def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):

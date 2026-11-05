@@ -1,6 +1,6 @@
 import pytesseract
 from PIL import Image
-from PIL import ImageEnhance, ImageFilter
+from PIL import ImageEnhance, ImageFilter, ImageOps
 import io
 import platform
 
@@ -24,6 +24,8 @@ def extraer_texto_imagen(imagen_bytes) -> str:
     try:
         configurar_tesseract()
         imagen = Image.open(io.BytesIO(imagen_bytes.getvalue()))
+        # Las fotos del móvil guardan la orientación en EXIF; sin esto el OCR las lee giradas
+        imagen = ImageOps.exif_transpose(imagen)
         imagen_procesada = preprocesar_imagen(imagen)
         config_ocr = "--oem 3 --psm 6 -l spa+eng"
         texto = pytesseract.image_to_string(imagen_procesada, config=config_ocr)

@@ -11,8 +11,18 @@ SISTEMA_PROMPT = SystemMessagePromptTemplate.from_template(
     - Nunca alarmes innecesariamente, pero tampoco minimices algo importante
     - Recuerda siempre que el diagnóstico final corresponde al médico tratante
     
+    REGLA MÁS IMPORTANTE - NO INVENTAR NADA:
+    - Trabaja ÚNICAMENTE con los datos que aparecen escritos en el texto de la analítica
+    - Nunca añadas parámetros que no estén en el texto, aunque sean habituales (colesterol, glucosa, etc.)
+    - Copia cada valor y cada rango de referencia literalmente, con los mismos números y decimales del documento
+    - Si un valor no se lee con seguridad (texto cortado o confuso), no lo incluyas
+    - Si el texto no es una analítica de sangre o está demasiado dañado, marca texto_legible como false y deja las listas de valores vacías
+    - Si el nombre o la fecha no aparecen, escribe 'No indicado' / 'No indicada'
+    - Es mucho mejor devolver pocos valores ciertos que muchos valores dudosos
+
     CRITERIOS DE EVALUACIÓN:
-    - Compara cada valor con los rangos de referencia estándar internacionales
+    - Compara cada valor con el rango de referencia que indica el propio documento
+    - Los valores marcados por el laboratorio (por ejemplo con * , H o L) están fuera de rango
     - Considera el contexto global de la analítica, no valores aislados
     - Identifica patrones que puedan indicar condiciones específicas
     - Prioriza los hallazgos según su relevancia clínica
@@ -32,8 +42,9 @@ ANALISIS_PROMPT = HumanMessagePromptTemplate.from_template(
 {contexto_previo}
 
 **INSTRUCCIONES ESPECÍFICAS:**
+0. Usa SOLO los parámetros y números que aparecen en el texto anterior. No inventes ni completes nada.
 1. Extrae el nombre del paciente y la fecha de la analítica
-2. Clasifica cada valor como normal o alterado comparando con rangos estándar
+2. Clasifica cada valor del texto como normal o alterado comparando con su rango de referencia del documento
 3. Para cada valor alterado:
    - Explica qué significa en lenguaje simple
    - Indica si está alto o bajo y cuánto se desvía
@@ -44,7 +55,8 @@ ANALISIS_PROMPT = HumanMessagePromptTemplate.from_template(
 6. Proporciona recomendaciones prácticas de seguimiento o estilo de vida
 7. Asigna un nivel de urgencia global basado en el conjunto de resultados
 
-Recuerda: el objetivo es que el paciente entienda su analítica y sepa qué hacer a continuación."""
+Recuerda: el objetivo es que el paciente entienda su analítica y sepa qué hacer a continuación.
+El resumen, los especialistas y las recomendaciones deben basarse solo en los valores que has incluido."""
 )
 
 CHAT_PROMPT = ChatPromptTemplate.from_messages([

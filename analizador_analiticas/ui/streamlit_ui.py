@@ -1,9 +1,12 @@
 import streamlit as st
 from services.pdf_processor import extraer_texto_pdf
 from services.ocr_processor import extraer_texto_imagen
-from services.analitica_evaluator import evaluar_analitica
+from services.analitica_evaluator import evaluar_analitica, descartar_valores_no_presentes, PATRON_NUMERO
 from reports.informe_generator import generar_informe_pdf
 from models.analitica_model import ResultadoAnalitica
+
+# Una analítica real tiene muchos números; con menos de estos, la lectura ha fallado
+MIN_NUMEROS_LEGIBLES = 6
 
 
 def main():
@@ -171,6 +174,19 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
             st.error(f"❌ {texto_analitica}")
             return
 
+        with st.expander("🔎 Ver texto leído del documento"):
+            st.caption("Esto es lo que la aplicación ha conseguido leer. El análisis se basa solo en este texto.")
+            st.text(texto_analitica)
+
+        if len(PATRON_NUMERO.findall(texto_analitica)) < MIN_NUMEROS_LEGIBLES:
+            estado.empty()
+            barra.empty()
+            st.error(
+                "❌ **No se ha podido leer bien la analítica.** Apenas se reconocen valores en el documento. "
+                "Si es una foto, repítela con más luz, sin reflejos, la hoja plana y el texto enfocado."
+            )
+            return
+
         texto_previo = None
         if archivo_previo is not None:
             estado.text("📄 Procesando analítica anterior...")
@@ -189,6 +205,25 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
             barra.empty()
             mostrar_error_analisis(resultado.resumen_general)
             return
+
+        descartados = descartar_valores_no_presentes(resultado, texto_analitica)
+
+        if not resultado.texto_legible or not (resultado.valores_alterados or resultado.valores_normales):
+            estado.empty()
+            barra.empty()
+            st.error(
+                "❌ **No se han podido identificar valores fiables en el documento.** "
+                "Si es una foto, repítela con más luz, sin reflejos, la hoja plana y el texto enfocado. "
+                "Puedes revisar arriba el texto que se ha leído."
+            )
+            return
+
+        if descartados:
+            st.warning(
+                f"⚠️ Se han descartado {len(descartados)} valores porque no aparecen en el documento "
+                f"({', '.join(descartados)}). El resumen podría estar incompleto: si es una foto, "
+                "prueba a repetirla con mejor calidad."
+            )
 
         estado.text("📝 Generando informe...")
         barra.progress(85)

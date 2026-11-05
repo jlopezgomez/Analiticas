@@ -1,7 +1,9 @@
 import streamlit as st
 from services.pdf_processor import extraer_texto_pdf
 from services.ocr_processor import extraer_texto_imagen
-from services.analitica_evaluator import evaluar_analitica, descartar_valores_no_presentes, PATRON_NUMERO
+from services.analitica_evaluator import (
+    evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango, PATRON_NUMERO
+)
 from reports.informe_generator import generar_informe_pdf
 from models.analitica_model import ResultadoAnalitica
 
@@ -207,8 +209,10 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
             return
 
         descartados = descartar_valores_no_presentes(resultado, texto_analitica)
+        sin_rango_movidos = separar_valores_sin_rango(resultado, texto_analitica)
 
-        if not resultado.texto_legible or not (resultado.valores_alterados or resultado.valores_normales):
+        hay_valores = resultado.valores_alterados or resultado.valores_normales or resultado.valores_sin_rango
+        if not resultado.texto_legible or not hay_valores:
             estado.empty()
             barra.empty()
             st.error(
@@ -223,6 +227,13 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
                 f"⚠️ Se han descartado {len(descartados)} valores porque no aparecen en el documento "
                 f"({', '.join(descartados)}). El resumen podría estar incompleto: si es una foto, "
                 "prueba a repetirla con mejor calidad."
+            )
+
+        if sin_rango_movidos:
+            st.info(
+                f"ℹ️ {len(sin_rango_movidos)} valores no tienen rango de referencia en el informe "
+                f"({', '.join(sin_rango_movidos)}), así que no se valoran como normales ni alterados. "
+                "El resumen podría mencionarlos: consulta su interpretación con tu médico."
             )
 
         estado.text("📝 Generando informe...")
@@ -308,6 +319,15 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
         with st.expander(f"✅ Ver valores en rango normal ({len(resultado.valores_normales)})"):
             for valor in resultado.valores_normales:
                 st.markdown(f"**{valor.nombre}:** {valor.valor} *(Referencia: {valor.rango_normal})*")
+
+    if resultado.valores_sin_rango:
+        with st.expander(f"❔ Valores sin rango de referencia en el informe ({len(resultado.valores_sin_rango)})"):
+            st.caption(
+                "El laboratorio no indica un rango para estos valores, así que la aplicación no dice "
+                "si son normales o no. Consulta su interpretación con tu médico."
+            )
+            for valor in resultado.valores_sin_rango:
+                st.markdown(f"**{valor.nombre}:** {valor.valor}")
 
     st.divider()
 

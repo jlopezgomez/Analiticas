@@ -1,6 +1,6 @@
 import re
 from langchain_openai import ChatOpenAI
-from models.analitica_model import ResultadoAnalitica
+from models.analitica_model import ResultadoAnalitica, ValorSanguineo
 from prompts.analitica_prompts import crear_analitica_prompts
 
 PATRON_NUMERO = re.compile(r"\d+(?:[.,]\d+)?")
@@ -31,7 +31,7 @@ def descartar_valores_no_presentes(resultado: ResultadoAnalitica, texto_analitic
     texto_lower = texto_analitica.lower()
     descartados = []
 
-    for lista in (resultado.valores_alterados, resultado.valores_normales):
+    for lista in (resultado.valores_alterados, resultado.valores_normales, resultado.valores_sin_rango):
         conservados = []
         for valor in lista:
             if _valor_aparece_en_texto(valor.valor, numeros_texto, texto_lower):
@@ -45,6 +45,41 @@ def descartar_valores_no_presentes(resultado: ResultadoAnalitica, texto_analitic
         resultado.nombre_paciente = "No indicado"
 
     return descartados
+
+
+def _rango_aparece_en_texto(rango: str, numeros_texto: set[float], texto_lower: str) -> bool:
+    numeros_rango = PATRON_NUMERO.findall(rango)
+    if not numeros_rango:
+        # Rangos cualitativos ("Negativo"...); "No indicado" nunca está en un informe
+        return bool(rango.strip()) and rango.strip().lower() in texto_lower
+    return all(float(n.replace(",", ".")) in numeros_texto for n in numeros_rango)
+
+
+def separar_valores_sin_rango(resultado: ResultadoAnalitica, texto_analitica: str) -> list[str]:
+    """
+    Pasa a valores_sin_rango los valores clasificados como normales o alterados cuyo rango
+    de referencia no aparece en el documento: solo vale el rango que fija el laboratorio.
+
+    Returns:
+        Nombres de los parámetros que se han movido.
+    """
+    numeros_texto = _numeros_en(texto_analitica)
+    texto_lower = texto_analitica.lower()
+    movidos = []
+
+    for lista in (resultado.valores_alterados, resultado.valores_normales):
+        conservados = []
+        for valor in lista:
+            if _rango_aparece_en_texto(valor.rango_normal, numeros_texto, texto_lower):
+                conservados.append(valor)
+            else:
+                resultado.valores_sin_rango.append(
+                    ValorSanguineo(nombre=valor.nombre, valor=valor.valor, rango_normal="No indicado")
+                )
+                movidos.append(valor.nombre)
+        lista[:] = conservados
+
+    return movidos
 
 
 def crear_evaluador_analitica():

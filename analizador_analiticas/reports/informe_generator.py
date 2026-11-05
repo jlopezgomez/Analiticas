@@ -207,6 +207,34 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
         ]))
         contenido.append(tabla_normales)
 
+    # ── VALORES SIN RANGO DE REFERENCIA ──────────────────────────────────────
+    if resultado.valores_sin_rango:
+        contenido.append(Paragraph("Valores sin Rango de Referencia en el Informe", estilo_seccion))
+        contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_AZUL, spaceAfter=8))
+        contenido.append(Paragraph(
+            "El laboratorio no indica un rango para estos valores, por lo que no se valoran como "
+            "normales ni alterados. Consulte su interpretación con su médico.",
+            estilo_normal
+        ))
+
+        datos_tabla = [["Parámetro", "Valor obtenido"]]
+        for valor in resultado.valores_sin_rango:
+            datos_tabla.append([valor.nombre, valor.valor])
+
+        tabla_sin_rango = Table(datos_tabla, colWidths=[9 * cm, 9 * cm])
+        tabla_sin_rango.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), COLOR_AZUL),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("PADDING", (0, 0), (-1, -1), 7),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [COLOR_GRIS_CLARO, colors.white]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
+        ]))
+        contenido.append(tabla_sin_rango)
+
     # ── ESPECIALISTAS RECOMENDADOS ────────────────────────────────────────────
     if resultado.especialistas_recomendados:
         contenido.append(Paragraph("Especialistas Recomendados", estilo_seccion))

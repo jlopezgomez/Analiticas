@@ -29,6 +29,10 @@ class ResultadoAnalitica(BaseModel):
     fecha_analitica: str = Field(description="Fecha de la analítica extraída del documento, o 'No indicada' si no aparece.")
     valores_normales: list[ValorSanguineo] = Field(description="Lista de valores dentro del rango normal.")
     valores_alterados: list[ValorAlterado] = Field(description="Lista de valores fuera del rango normal.")
+    valores_sin_rango: list[ValorSanguineo] = Field(
+        default_factory=list,
+        description="Valores que el documento muestra SIN rango de referencia. No se clasifican como normales ni alterados; rango_normal = 'No indicado'."
+    )
     resumen_general: str = Field(description="Resumen ejecutivo del estado general de salud en lenguaje simple.")
     especialistas_recomendados: list[str] = Field(description="Lista de especialistas a consultar según las alteraciones encontradas.")
     recomendaciones: list[str] = Field(description="Lista de recomendaciones generales de estilo de vida o seguimiento.")

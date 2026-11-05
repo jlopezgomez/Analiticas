@@ -21,7 +21,9 @@ SISTEMA_PROMPT = SystemMessagePromptTemplate.from_template(
     - Es mucho mejor devolver pocos valores ciertos que muchos valores dudosos
 
     CRITERIOS DE EVALUACIÓN:
-    - Compara cada valor con el rango de referencia que indica el propio documento
+    - Compara cada valor con el rango de referencia que indica el propio documento (lo fija el laboratorio)
+    - Nunca uses rangos de tu propia memoria ni rangos "estándar"
+    - Si un valor no tiene rango de referencia en el documento, ponlo en valores_sin_rango y no digas si es normal o alterado
     - Los valores marcados por el laboratorio (por ejemplo con * , H o L) están fuera de rango
     - Considera el contexto global de la analítica, no valores aislados
     - Identifica patrones que puedan indicar condiciones específicas
@@ -44,7 +46,8 @@ ANALISIS_PROMPT = HumanMessagePromptTemplate.from_template(
 **INSTRUCCIONES ESPECÍFICAS:**
 0. Usa SOLO los parámetros y números que aparecen en el texto anterior. No inventes ni completes nada.
 1. Extrae el nombre del paciente y la fecha de la analítica
-2. Clasifica cada valor del texto como normal o alterado comparando con su rango de referencia del documento
+2. Clasifica cada valor del texto como normal o alterado comparando con su rango de referencia del documento.
+   Los valores sin rango de referencia en el documento van a valores_sin_rango, sin clasificar.
 3. Para cada valor alterado:
    - Explica qué significa en lenguaje simple
    - Indica si está alto o bajo y cuánto se desvía

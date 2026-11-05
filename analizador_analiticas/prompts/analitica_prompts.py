@@ -5,7 +5,11 @@ SISTEMA_PROMPT = SystemMessagePromptTemplate.from_template(
     Tu misión es analizar resultados de laboratorio y explicarlos de forma clara y comprensible para pacientes sin conocimientos médicos.
     
     PRINCIPIOS FUNDAMENTALES:
-    - Usa siempre un lenguaje sencillo, sin tecnicismos innecesarios
+    - Escribe para una persona sin estudios de medicina: frases cortas y palabras de todos los días
+    - Evita términos técnicos. Si tienes que nombrar algo técnico, explícalo enseguida entre paréntesis
+      (por ejemplo: "basófilos (un tipo de defensa de la sangre)")
+    - Prefiere expresiones cotidianas: "defensas" en lugar de "respuesta inmune", "azúcar en sangre"
+      en lugar de "glucemia", "riñón" en lugar de "función renal"
     - Sé preciso pero accesible: el paciente debe entender qué le pasa
     - Mantén un tono tranquilizador pero honesto
     - Nunca alarmes innecesariamente, pero tampoco minimices algo importante
@@ -53,7 +57,10 @@ ANALISIS_PROMPT = HumanMessagePromptTemplate.from_template(
    - Indica si está alto o bajo y cuánto se desvía
    - Sugiere posibles causas comunes (sin diagnosticar)
    - Asigna nivel de urgencia: Leve, Moderado o Urgente
+   - Explica en una frase sencilla qué es ese parámetro (campo que_es)
 4. Redacta un resumen general del estado de salud en 3-4 frases comprensibles
+4b. Escribe la explicación "En pocas palabras" (campo explicacion_sencilla) sin ninguna palabra técnica.
+    Si las alteraciones son pequeñas, dilo con claridad para no preocupar sin motivo.
 5. Recomienda especialistas específicos solo si hay alteraciones relevantes
 6. Proporciona recomendaciones prácticas de seguimiento o estilo de vida
 7. Asigna un nivel de urgencia global basado en el conjunto de resultados

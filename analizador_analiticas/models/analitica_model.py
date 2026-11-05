@@ -14,8 +14,12 @@ class ValorAlterado(BaseModel):
     valor: str = Field(description="Valor copiado literalmente del documento, con su unidad.")
     rango_normal: str = Field(description="Rango de referencia copiado literalmente del documento, o 'No indicado' si no aparece.")
     tipo_alteracion: str = Field(description="'Alto' o 'Bajo' según corresponda.")
-    interpretacion: str = Field(description="Explicación clara en lenguaje simple para el paciente.")
-    posible_causa: str = Field(description="Posibles causas comunes de esta alteración.")
+    que_es: str = Field(
+        default="",
+        description="Qué es este parámetro en una frase corta y con palabras de todos los días. Ej: 'Un tipo de defensa de la sangre que ayuda a combatir alergias e infecciones.'"
+    )
+    interpretacion: str = Field(description="Qué significa tenerlo así, en 1-2 frases sencillas, sin palabras médicas.")
+    posible_causa: str = Field(description="Causas habituales, explicadas con palabras sencillas.")
     nivel_urgencia: str = Field(description="'Leve', 'Moderado' o 'Urgente'.")
 
 
@@ -33,7 +37,15 @@ class ResultadoAnalitica(BaseModel):
         default_factory=list,
         description="Valores que el documento muestra SIN rango de referencia. No se clasifican como normales ni alterados; rango_normal = 'No indicado'."
     )
-    resumen_general: str = Field(description="Resumen ejecutivo del estado general de salud en lenguaje simple.")
+    resumen_general: str = Field(description="Resumen del estado general en 3-4 frases sencillas, sin palabras médicas.")
+    explicacion_sencilla: str = Field(
+        default="",
+        description=(
+            "Explicación final 'En pocas palabras', como se lo contaría un médico de familia a un vecino: "
+            "4-6 frases muy cortas, sin ninguna palabra técnica, que digan si en general está bien, "
+            "qué es lo único a vigilar y qué hacer ahora. Tono tranquilo."
+        )
+    )
     especialistas_recomendados: list[str] = Field(description="Lista de especialistas a consultar según las alteraciones encontradas.")
     recomendaciones: list[str] = Field(description="Lista de recomendaciones generales de estilo de vida o seguimiento.")
     nivel_urgencia_global: str = Field(description="Nivel de urgencia global: 'Normal', 'Seguimiento recomendado' o 'Consultar pronto'.")

@@ -18,6 +18,7 @@ class Posicion:
     diferencia: float = 0.0  # Distancia al límite superado (0 si está dentro)
     porcentaje: float = 0.0  # Esa distancia en % del límite superado
     limite_texto: str = ""   # El límite superado tal como lo escribe el informe
+    valor_texto: str = ""    # El valor tal como lo escribe el informe
 
 
 def _a_float(texto: str) -> float:
@@ -65,28 +66,45 @@ def calcular_posicion(valor: str, rango: str) -> Posicion | None:
         diferencia = cifra - maximo
         porcentaje = diferencia / maximo * 100 if maximo else 0.0
         return Posicion(cifra, unidad, minimo, maximo, "por_encima", diferencia, porcentaje,
-                        textos_rango[1] if minimo is not None else textos_rango[0])
+                        textos_rango[1] if minimo is not None else textos_rango[0], numero.group())
     if minimo is not None and cifra < minimo:
         diferencia = minimo - cifra
         porcentaje = diferencia / minimo * 100 if minimo else 0.0
-        return Posicion(cifra, unidad, minimo, maximo, "por_debajo", diferencia, porcentaje, textos_rango[0])
-    return Posicion(cifra, unidad, minimo, maximo, "dentro")
+        return Posicion(cifra, unidad, minimo, maximo, "por_debajo", diferencia, porcentaje,
+                        textos_rango[0], numero.group())
+    return Posicion(cifra, unidad, minimo, maximo, "dentro", valor_texto=numero.group())
+
+
+def limpiar_valor(valor: str) -> str:
+    """Quita las marcas del laboratorio (*, H, L) que acompañan al número en el informe."""
+    return re.sub(r"^\s*[*HL]\s*(?=\d)", "", valor.strip())
+
+
+def esta_cerca_del_limite(posicion: Posicion) -> bool:
+    """
+    True si el valor se sale del rango muy poco: hasta un 5 %, o por la mínima cifra que
+    el informe puede mostrar (p. ej. 0,00 frente a un mínimo de 0,01).
+    """
+    if posicion.estado == "dentro":
+        return False
+    decimales = len(posicion.limite_texto.replace(",", ".").partition(".")[2])
+    paso_minimo = 10 ** -decimales
+    return posicion.porcentaje <= PORCENTAJE_CERCA_LIMITE or posicion.diferencia <= paso_minimo + 1e-9
 
 
 def describir_posicion(posicion: Posicion) -> str:
-    """Frase corta que explica dónde está el valor respecto al rango del informe."""
-    unidad = f" {posicion.unidad}" if posicion.unidad else ""
-
+    """Frase corta y sin tecnicismos que explica dónde está el valor respecto a lo normal."""
     if posicion.estado == "dentro":
-        return "Dentro del rango del informe."
+        return "Dentro de lo normal según tu laboratorio."
 
-    lado = "por encima del máximo" if posicion.estado == "por_encima" else "por debajo del mínimo"
-    porcentaje = f"{posicion.porcentaje:.1f}".rstrip("0").rstrip(".").replace(".", ",")
+    diferencia = _formatear(posicion.diferencia)
+    if posicion.estado == "por_encima":
+        frase = (f"Lo normal es hasta {posicion.limite_texto} y tú tienes {posicion.valor_texto}: "
+                 f"{diferencia} por encima.")
+    else:
+        frase = (f"Lo normal es a partir de {posicion.limite_texto} y tú tienes {posicion.valor_texto}: "
+                 f"{diferencia} por debajo.")
 
-    frase = (
-        f"{_formatear(posicion.diferencia)}{unidad} {lado} ({posicion.limite_texto}), "
-        f"un {porcentaje} % {'más' if posicion.estado == 'por_encima' else 'menos'}."
-    )
-    if posicion.porcentaje <= PORCENTAJE_CERCA_LIMITE:
-        frase += " Muy cerca del límite."
+    if esta_cerca_del_limite(posicion):
+        frase += " Está muy cerca del límite."
     return frase

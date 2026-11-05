@@ -5,7 +5,7 @@ from services.analitica_evaluator import (
     evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango,
     corregir_alterados_dentro_de_rango, PATRON_NUMERO
 )
-from services.rango_referencia import calcular_posicion, describir_posicion, PORCENTAJE_CERCA_LIMITE
+from services.rango_referencia import calcular_posicion, describir_posicion, esta_cerca_del_limite, limpiar_valor
 from reports.informe_generator import generar_informe_pdf
 from models.analitica_model import ResultadoAnalitica
 
@@ -285,7 +285,7 @@ def _barra_rango_html(posicion) -> str:
 
     if posicion.estado == "dentro":
         color = "#1e8e3e"
-    elif posicion.porcentaje <= PORCENTAJE_CERCA_LIMITE:
+    elif esta_cerca_del_limite(posicion):
         color = "#f29900"
     else:
         color = "#d93025"
@@ -301,7 +301,7 @@ def _barra_rango_html(posicion) -> str:
 
 def mostrar_comparacion_rango(valor: str, rango: str):
     """Muestra tu valor frente al rango del informe: cifras, barra y cuánto se aleja."""
-    st.markdown(f"Tu valor: **{valor}** · Rango del informe: **{rango}**")
+    st.markdown(f"Tu valor: **{limpiar_valor(valor)}** · Lo normal según tu laboratorio: **{rango}**")
     posicion = calcular_posicion(valor, rango)
     if posicion is None:
         return
@@ -339,7 +339,7 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
     st.divider()
 
     if resultado.valores_alterados:
-        st.subheader(f"⚠️ Valores Alterados ({len(resultado.valores_alterados)})")
+        st.subheader(f"⚠️ Valores fuera de lo normal ({len(resultado.valores_alterados)})")
         for valor in resultado.valores_alterados:
             urgencia = valor.nivel_urgencia.lower()
             if "urgente" in urgencia:
@@ -353,26 +353,26 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
                 expander_color = "🟠"
 
             posicion = calcular_posicion(valor.valor, valor.rango_normal)
-            desviacion = ""
-            if posicion is not None and posicion.estado != "dentro":
-                signo = "+" if posicion.estado == "por_encima" else "−"
-                desviacion = f" ({signo}{posicion.porcentaje:.1f} %)".replace(".", ",")
+            direccion = "Más alto de lo normal" if valor.tipo_alteracion.lower().startswith("alt") else "Más bajo de lo normal"
+            cerca = " · muy cerca del límite" if posicion is not None and esta_cerca_del_limite(posicion) else ""
 
-            with st.expander(f"{icono} **{valor.nombre}** — {valor.valor} (Referencia: {valor.rango_normal}) · {valor.tipo_alteracion}{desviacion}"):
+            with st.expander(f"{icono} **{valor.nombre}** — {limpiar_valor(valor.valor)} · {direccion}{cerca}"):
+                if valor.que_es:
+                    st.markdown(f"**¿Qué es?** {valor.que_es}")
                 mostrar_comparacion_rango(valor.valor, valor.rango_normal)
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    st.markdown("**¿Qué significa?**")
+                    st.markdown("**¿Qué significa para ti?**")
                     st.write(valor.interpretacion)
                 with col_b:
-                    st.markdown("**Posible causa:**")
+                    st.markdown("**¿Por qué puede pasar?**")
                     st.write(valor.posible_causa)
-                st.caption(f"Nivel de urgencia: {expander_color} {valor.nivel_urgencia}")
+                st.caption(f"Importancia: {expander_color} {valor.nivel_urgencia}")
     else:
         st.success("✅ No se detectaron valores fuera de rango.")
 
     if resultado.valores_normales:
-        with st.expander(f"✅ Ver valores en rango normal ({len(resultado.valores_normales)})"):
+        with st.expander(f"✅ Ver valores normales ({len(resultado.valores_normales)})"):
             for valor in resultado.valores_normales:
                 st.markdown(f"**{valor.nombre}**")
                 mostrar_comparacion_rango(valor.valor, valor.rango_normal)
@@ -384,14 +384,14 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
                 "si son normales o no. Consulta su interpretación con tu médico."
             )
             for valor in resultado.valores_sin_rango:
-                st.markdown(f"**{valor.nombre}:** {valor.valor}")
+                st.markdown(f"**{valor.nombre}:** {limpiar_valor(valor.valor)}")
 
     st.divider()
 
     col_esp, col_rec = st.columns(2)
 
     with col_esp:
-        st.subheader("👨‍⚕️ Especialistas Recomendados")
+        st.subheader("👨‍⚕️ ¿A qué médico ir?")
         if resultado.especialistas_recomendados:
             for esp in resultado.especialistas_recomendados:
                 st.markdown(f"• {esp}")
@@ -403,6 +403,11 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
         if resultado.recomendaciones:
             for rec in resultado.recomendaciones:
                 st.markdown(f"• {rec}")
+
+    if resultado.explicacion_sencilla:
+        st.divider()
+        st.subheader("🗣️ En pocas palabras")
+        st.success(resultado.explicacion_sencilla)
 
     st.divider()
 

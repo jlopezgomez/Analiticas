@@ -7,7 +7,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from models.analitica_model import ResultadoAnalitica
-from services.rango_referencia import calcular_posicion, describir_posicion
+from services.rango_referencia import calcular_posicion, describir_posicion, limpiar_valor
 
 
 # Paleta de colores médica
@@ -151,7 +151,7 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
 
     # ── VALORES ALTERADOS ─────────────────────────────────────────────────────
     if resultado.valores_alterados:
-        contenido.append(Paragraph("Valores Alterados", estilo_seccion))
+        contenido.append(Paragraph("Valores Fuera de lo Normal", estilo_seccion))
         contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_ROJO, spaceAfter=8))
 
         for valor in resultado.valores_alterados:
@@ -159,7 +159,7 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
 
             encabezado = [[
                 Paragraph(f"<b>{valor.nombre}</b>", ParagraphStyle("H", fontSize=11, textColor=colors.white, fontName="Helvetica-Bold")),
-                Paragraph(f"Valor: {valor.valor}", ParagraphStyle("V", fontSize=10, textColor=colors.white)),
+                Paragraph(f"Valor: {limpiar_valor(valor.valor)}", ParagraphStyle("V", fontSize=10, textColor=colors.white)),
                 Paragraph(f"Referencia: {valor.rango_normal}", ParagraphStyle("R", fontSize=10, textColor=colors.white)),
                 Paragraph(f"{valor.tipo_alteracion} · {valor.nivel_urgencia}", ParagraphStyle("U", fontSize=10, textColor=colors.white, fontName="Helvetica-Bold")),
             ]]
@@ -172,13 +172,15 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
             contenido.append(t_enc)
 
             detalle = []
+            if valor.que_es:
+                detalle.append([Paragraph("<b>¿Qué es?</b>", estilo_item), Paragraph(valor.que_es, estilo_normal)])
             posicion = calcular_posicion(valor.valor, valor.rango_normal)
             if posicion is not None:
                 detalle.append([Paragraph("<b>Respecto al rango:</b>", estilo_item),
                                 Paragraph(describir_posicion(posicion), estilo_normal)])
             detalle += [
-                [Paragraph("<b>¿Qué significa?</b>", estilo_item), Paragraph(valor.interpretacion, estilo_normal)],
-                [Paragraph("<b>Posible causa:</b>", estilo_item), Paragraph(valor.posible_causa, estilo_normal)],
+                [Paragraph("<b>¿Qué significa para ti?</b>", estilo_item), Paragraph(valor.interpretacion, estilo_normal)],
+                [Paragraph("<b>¿Por qué puede pasar?</b>", estilo_item), Paragraph(valor.posible_causa, estilo_normal)],
             ]
             t_det = Table(detalle, colWidths=[4 * cm, 14 * cm])
             t_det.setStyle(TableStyle([
@@ -254,6 +256,12 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
         contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_AZUL, spaceAfter=8))
         for rec in resultado.recomendaciones:
             contenido.append(Paragraph(f"• {rec}", estilo_item))
+
+    # ── EN POCAS PALABRAS ─────────────────────────────────────────────────────
+    if resultado.explicacion_sencilla:
+        contenido.append(Paragraph("En Pocas Palabras", estilo_seccion))
+        contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_VERDE, spaceAfter=8))
+        contenido.append(Paragraph(resultado.explicacion_sencilla, estilo_normal))
 
     # ── AVISO LEGAL ───────────────────────────────────────────────────────────
     contenido.append(Spacer(1, 20))

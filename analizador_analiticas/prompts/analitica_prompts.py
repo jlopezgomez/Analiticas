@@ -57,6 +57,8 @@ ANALISIS_PROMPT = HumanMessagePromptTemplate.from_template(
 
 **INSTRUCCIONES ESPECÍFICAS:**
 0. Usa SOLO los parámetros y números que aparecen en el texto anterior. No inventes ni completes nada.
+   El texto puede venir de varias fotos (marcadas "--- FOTO n ---") de la misma analítica: trátalo como
+   un único informe y, si un mismo parámetro aparece repetido porque las fotos se solapan, inclúyelo una sola vez.
 1. Extrae el nombre del paciente y la fecha de la analítica
 2. Clasifica cada valor del texto como normal o alterado comparando con su rango de referencia del documento.
    Los valores sin rango de referencia en el documento van a valores_sin_rango, sin clasificar.

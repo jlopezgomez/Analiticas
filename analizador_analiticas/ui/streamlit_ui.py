@@ -13,6 +13,8 @@ from models.analitica_model import ResultadoAnalitica
 
 # Una analítica real tiene muchos números; con menos de estos, la lectura ha fallado
 MIN_NUMEROS_LEGIBLES = 6
+# Más fotos alargan mucho la lectura y el análisis; una analítica rara vez pasa de unas pocas páginas
+MAX_FOTOS = 6
 
 
 def main():
@@ -54,7 +56,7 @@ def procesar_entrada():
     tab_pdf, tab_camara = st.tabs(["📄 Subir PDF", "📷 Hacer Foto"])
 
     archivo_analitica = None
-    imagen_analitica = None
+    imagenes_analitica = []
 
     with tab_pdf:
         st.markdown("**Sube tu analítica en formato PDF**")
@@ -74,10 +76,15 @@ def procesar_entrada():
             "📱 En el móvil, pulsa el botón y elige **Cámara**: se abrirá la cámara del teléfono "
             "a pantalla completa para que puedas encuadrar y enfocar bien."
         )
+        st.caption(
+            "📑 ¿Tu analítica tiene varias páginas? Haz una foto de cada página: puedes añadir "
+            "varias fotos y se analizarán juntas como una sola analítica."
+        )
         st.caption("💡 Consejos: buena iluminación, sin reflejos, texto enfocado y la hoja plana.")
-        imagen_analitica = st.file_uploader(
-            "Hacer foto o elegir imagen:",
+        imagenes_subidas = st.file_uploader(
+            "Hacer fotos o elegir imágenes:",
             type=["jpg", "jpeg", "png"],
+            accept_multiple_files=True,
             key="analitica_foto",
             help="Apunta la cámara a tu analítica y asegúrate de que el texto sea legible."
         )
@@ -91,10 +98,19 @@ def procesar_entrada():
                 help="Apunta la cámara a tu analítica y asegúrate de que el texto sea legible."
             )
 
-        imagen_analitica = imagen_analitica or imagen_webcam
-        if imagen_analitica:
-            st.image(imagen_analitica, caption="Revisa que el texto se lea bien")
-            st.success("✅ Foto cargada correctamente.")
+        imagenes_analitica = list(imagenes_subidas or [])
+        if imagen_webcam:
+            imagenes_analitica.append(imagen_webcam)
+
+        if len(imagenes_analitica) > MAX_FOTOS:
+            st.warning(f"⚠️ Solo se analizarán las primeras {MAX_FOTOS} fotos.")
+            imagenes_analitica = imagenes_analitica[:MAX_FOTOS]
+
+        if imagenes_analitica:
+            st.success(f"✅ {len(imagenes_analitica)} foto(s) cargada(s). Revisa que el texto se lea bien.")
+            columnas = st.columns(min(len(imagenes_analitica), 3))
+            for i, imagen in enumerate(imagenes_analitica):
+                columnas[i % len(columnas)].image(imagen, caption=f"Foto {i + 1}")
 
     st.markdown("---")
 
@@ -126,7 +142,7 @@ def procesar_entrada():
             st.rerun()
 
     st.session_state["archivo_analitica"] = archivo_analitica
-    st.session_state["imagen_analitica"] = imagen_analitica
+    st.session_state["imagenes_analitica"] = imagenes_analitica
     st.session_state["archivo_analitica_previa"] = archivo_analitica_previa
     st.session_state["analizar"] = analizar
 
@@ -136,21 +152,21 @@ def mostrar_area_resultados():
 
     if st.session_state.get("analizar", False):
         archivo = st.session_state.get("archivo_analitica")
-        imagen = st.session_state.get("imagen_analitica")
+        imagenes = st.session_state.get("imagenes_analitica") or []
         archivo_previo = st.session_state.get("archivo_analitica_previa")
 
-        if archivo is None and imagen is None:
+        if archivo is None and not imagenes:
             st.error("⚠️ Por favor sube un PDF o haz una foto de tu analítica.")
             return
 
-        procesar_analisis(archivo, imagen, archivo_previo)
+        procesar_analisis(archivo, imagenes, archivo_previo)
     else:
         st.info("""
         👆 **¿Cómo usar esta herramienta?**
 
         1. Elige cómo introducir tu analítica:
            - 📄 **PDF**: sube el archivo directamente
-           - 📷 **Foto**: usa la cámara de tu móvil o webcam
+           - 📷 **Fotos**: haz una foto de cada página con el móvil (puedes añadir varias)
         2. (Opcional) Sube una analítica anterior para comparar tendencias
         3. Haz clic en **Analizar Analítica**
         4. Aquí verás la interpretación completa
@@ -162,7 +178,24 @@ def mostrar_area_resultados():
         """)
 
 
-def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_previo=None):
+def leer_fotos(imagenes, estado, barra) -> str:
+    """Lee todas las fotos con OCR y junta su texto, marcando de qué foto viene cada parte."""
+    textos = []
+    for i, imagen in enumerate(imagenes, start=1):
+        estado.text(f"📷 Leyendo foto {i} de {len(imagenes)}...")
+        barra.progress(5 + int(25 * i / len(imagenes)))
+        texto = extraer_texto_imagen(imagen)
+        if texto.startswith("Error"):
+            st.warning(f"⚠️ Foto {i}: {texto.removeprefix('Error: ')} Se analizarán las demás.")
+            continue
+        textos.append(f"--- FOTO {i} ---\n{texto}")
+
+    if not textos:
+        return "Error: No se pudo leer ninguna de las fotos. Repítelas con más luz, sin reflejos y el texto enfocado."
+    return "\n\n".join(textos)
+
+
+def procesar_analisis(archivo_analitica=None, imagenes_analitica=None, archivo_previo=None):
     with st.spinner("🔬 Procesando analítica..."):
         barra = st.progress(0)
         estado = st.empty()
@@ -172,9 +205,7 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
             barra.progress(20)
             texto_analitica = extraer_texto_pdf(archivo_analitica)
         else:
-            estado.text("📷 Procesando imagen con OCR...")
-            barra.progress(20)
-            texto_analitica = extraer_texto_imagen(imagen_analitica)
+            texto_analitica = leer_fotos(imagenes_analitica, estado, barra)
 
         if texto_analitica.startswith("Error"):
             st.error(f"❌ {texto_analitica}")

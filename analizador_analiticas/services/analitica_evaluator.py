@@ -2,6 +2,7 @@ import re
 from langchain_openai import ChatOpenAI
 from models.analitica_model import ResultadoAnalitica, ValorSanguineo
 from prompts.analitica_prompts import crear_analitica_prompts
+from services.rango_referencia import calcular_posicion
 
 PATRON_NUMERO = re.compile(r"\d+(?:[.,]\d+)?")
 
@@ -80,6 +81,29 @@ def separar_valores_sin_rango(resultado: ResultadoAnalitica, texto_analitica: st
         lista[:] = conservados
 
     return movidos
+
+
+def corregir_alterados_dentro_de_rango(resultado: ResultadoAnalitica) -> list[str]:
+    """
+    Pasa a normales los valores que la IA marcó como alterados pero que, según los números
+    del rango del informe, están dentro de él.
+
+    Returns:
+        Nombres de los parámetros corregidos.
+    """
+    corregidos = []
+    conservados = []
+    for valor in resultado.valores_alterados:
+        posicion = calcular_posicion(valor.valor, valor.rango_normal)
+        if posicion is not None and posicion.estado == "dentro":
+            resultado.valores_normales.append(
+                ValorSanguineo(nombre=valor.nombre, valor=valor.valor, rango_normal=valor.rango_normal)
+            )
+            corregidos.append(valor.nombre)
+        else:
+            conservados.append(valor)
+    resultado.valores_alterados[:] = conservados
+    return corregidos
 
 
 def crear_evaluador_analitica():

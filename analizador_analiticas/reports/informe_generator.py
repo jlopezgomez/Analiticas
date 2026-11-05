@@ -7,6 +7,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from models.analitica_model import ResultadoAnalitica
+from services.rango_referencia import calcular_posicion, describir_posicion
 
 
 # Paleta de colores médica
@@ -170,7 +171,12 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
             ]))
             contenido.append(t_enc)
 
-            detalle = [
+            detalle = []
+            posicion = calcular_posicion(valor.valor, valor.rango_normal)
+            if posicion is not None:
+                detalle.append([Paragraph("<b>Respecto al rango:</b>", estilo_item),
+                                Paragraph(describir_posicion(posicion), estilo_normal)])
+            detalle += [
                 [Paragraph("<b>¿Qué significa?</b>", estilo_item), Paragraph(valor.interpretacion, estilo_normal)],
                 [Paragraph("<b>Posible causa:</b>", estilo_item), Paragraph(valor.posible_causa, estilo_normal)],
             ]

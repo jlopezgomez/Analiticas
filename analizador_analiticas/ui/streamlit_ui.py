@@ -2,8 +2,10 @@ import streamlit as st
 from services.pdf_processor import extraer_texto_pdf
 from services.ocr_processor import extraer_texto_imagen
 from services.analitica_evaluator import (
-    evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango, PATRON_NUMERO
+    evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango,
+    corregir_alterados_dentro_de_rango, PATRON_NUMERO
 )
+from services.rango_referencia import calcular_posicion, describir_posicion, PORCENTAJE_CERCA_LIMITE
 from reports.informe_generator import generar_informe_pdf
 from models.analitica_model import ResultadoAnalitica
 
@@ -210,6 +212,7 @@ def procesar_analisis(archivo_analitica=None, imagen_analitica=None, archivo_pre
 
         descartados = descartar_valores_no_presentes(resultado, texto_analitica)
         sin_rango_movidos = separar_valores_sin_rango(resultado, texto_analitica)
+        corregir_alterados_dentro_de_rango(resultado)
 
         hay_valores = resultado.valores_alterados or resultado.valores_normales or resultado.valores_sin_rango
         if not resultado.texto_legible or not hay_valores:
@@ -260,6 +263,52 @@ def mostrar_error_analisis(detalle: str):
         st.code(detalle)
 
 
+def _barra_rango_html(posicion) -> str:
+    """Barra con la zona del rango del informe en verde y un punto donde cae el valor."""
+    if posicion.minimo is not None and posicion.maximo is not None:
+        margen = (posicion.maximo - posicion.minimo) * 0.5 or 1
+        inicio, fin = posicion.minimo - margen, posicion.maximo + margen
+    elif posicion.maximo is not None:
+        inicio, fin = 0, posicion.maximo * 1.5 or 1
+    else:
+        inicio, fin = posicion.minimo * 0.5, posicion.minimo * 2 or 1
+
+    inicio = min(inicio, posicion.valor)
+    fin = max(fin, posicion.valor)
+
+    def pct(x):
+        return max(0.0, min(100.0, (x - inicio) / (fin - inicio) * 100))
+
+    zona_ini = pct(posicion.minimo) if posicion.minimo is not None else 0
+    zona_fin = pct(posicion.maximo) if posicion.maximo is not None else 100
+    punto = pct(posicion.valor)
+
+    if posicion.estado == "dentro":
+        color = "#1e8e3e"
+    elif posicion.porcentaje <= PORCENTAJE_CERCA_LIMITE:
+        color = "#f29900"
+    else:
+        color = "#d93025"
+
+    return f"""
+<div style="position:relative;height:14px;margin:6px 0 4px;border-radius:7px;background:rgba(128,128,128,0.18);">
+  <div style="position:absolute;left:{zona_ini:.1f}%;width:{zona_fin - zona_ini:.1f}%;height:100%;
+              border-radius:7px;background:rgba(30,142,62,0.35);"></div>
+  <div style="position:absolute;left:calc({punto:.1f}% - 7px);top:-2px;width:14px;height:18px;
+              border-radius:4px;background:{color};border:2px solid white;"></div>
+</div>"""
+
+
+def mostrar_comparacion_rango(valor: str, rango: str):
+    """Muestra tu valor frente al rango del informe: cifras, barra y cuánto se aleja."""
+    st.markdown(f"Tu valor: **{valor}** · Rango del informe: **{rango}**")
+    posicion = calcular_posicion(valor, rango)
+    if posicion is None:
+        return
+    st.markdown(_barra_rango_html(posicion), unsafe_allow_html=True)
+    st.caption(describir_posicion(posicion))
+
+
 def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
     st.subheader("🏥 Estado General")
 
@@ -303,7 +352,14 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
                 icono = "🟠"
                 expander_color = "🟠"
 
-            with st.expander(f"{icono} **{valor.nombre}** — {valor.valor} (Referencia: {valor.rango_normal}) · {valor.tipo_alteracion}"):
+            posicion = calcular_posicion(valor.valor, valor.rango_normal)
+            desviacion = ""
+            if posicion is not None and posicion.estado != "dentro":
+                signo = "+" if posicion.estado == "por_encima" else "−"
+                desviacion = f" ({signo}{posicion.porcentaje:.1f} %)".replace(".", ",")
+
+            with st.expander(f"{icono} **{valor.nombre}** — {valor.valor} (Referencia: {valor.rango_normal}) · {valor.tipo_alteracion}{desviacion}"):
+                mostrar_comparacion_rango(valor.valor, valor.rango_normal)
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.markdown("**¿Qué significa?**")
@@ -318,7 +374,8 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
     if resultado.valores_normales:
         with st.expander(f"✅ Ver valores en rango normal ({len(resultado.valores_normales)})"):
             for valor in resultado.valores_normales:
-                st.markdown(f"**{valor.nombre}:** {valor.valor} *(Referencia: {valor.rango_normal})*")
+                st.markdown(f"**{valor.nombre}**")
+                mostrar_comparacion_rango(valor.valor, valor.rango_normal)
 
     if resultado.valores_sin_rango:
         with st.expander(f"❔ Valores sin rango de referencia en el informe ({len(resultado.valores_sin_rango)})"):

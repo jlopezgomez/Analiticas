@@ -92,6 +92,14 @@ def esta_cerca_del_limite(posicion: Posicion) -> bool:
     return posicion.porcentaje <= PORCENTAJE_CERCA_LIMITE or posicion.diferencia <= paso_minimo + 1e-9
 
 
+def frase_valor(valor: str, rango: str) -> str:
+    """Frase exacta para un valor: tu cifra frente a lo normal del informe."""
+    posicion = calcular_posicion(valor, rango)
+    if posicion is None:
+        return f"Tienes {limpiar_valor(valor)} (lo normal según el informe: {rango})."
+    return describir_posicion(posicion)
+
+
 def describir_posicion(posicion: Posicion) -> str:
     """Frase corta y sin tecnicismos que explica dónde está el valor respecto a lo normal."""
     if posicion.estado == "dentro":

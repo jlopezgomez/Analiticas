@@ -41,9 +41,11 @@ class ResultadoAnalitica(BaseModel):
     explicacion_sencilla: str = Field(
         default="",
         description=(
-            "Explicación final 'En pocas palabras', como se lo contaría un médico de familia a un vecino: "
-            "4-6 frases muy cortas, sin ninguna palabra técnica, que digan si en general está bien, "
-            "qué es lo único a vigilar y qué hacer ahora. Tono tranquilo."
+            "Explicación final 'En pocas palabras', como se lo contaría un médico de familia a un paciente: "
+            "4-6 frases cortas y sencillas pero precisas. Nombra cada valor fuera de lo normal por su nombre, "
+            "con su cifra y lo normal según el informe, y explica qué es en palabras sencillas. "
+            "No uses expresiones vagas ('un par de', 'algunas defensas', 'un poco') ni digas si es grave o no: "
+            "eso lo valora el médico. Termina diciendo qué hacer ahora."
         )
     )
     especialistas_recomendados: list[str] = Field(description="Lista de especialistas a consultar según las alteraciones encontradas.")

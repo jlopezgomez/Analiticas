@@ -7,7 +7,7 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from models.analitica_model import ResultadoAnalitica
-from services.rango_referencia import calcular_posicion, describir_posicion, limpiar_valor
+from services.rango_referencia import calcular_posicion, describir_posicion, limpiar_valor, frase_valor
 
 
 # Paleta de colores médica
@@ -258,9 +258,19 @@ def generar_informe_pdf(resultado: ResultadoAnalitica) -> bytes:
             contenido.append(Paragraph(f"• {rec}", estilo_item))
 
     # ── EN POCAS PALABRAS ─────────────────────────────────────────────────────
+    contenido.append(Paragraph("En Pocas Palabras", estilo_seccion))
+    contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_VERDE, spaceAfter=8))
+    if resultado.valores_alterados:
+        contenido.append(Paragraph(
+            f"Tiene {len(resultado.valores_alterados)} valores fuera de lo normal:", estilo_normal))
+        for valor in resultado.valores_alterados:
+            contenido.append(Paragraph(
+                f"• <b>{valor.nombre}</b>: {frase_valor(valor.valor, valor.rango_normal)}", estilo_item))
+    else:
+        contenido.append(Paragraph(
+            "Todos los valores con rango en el informe están dentro de lo normal.", estilo_normal))
     if resultado.explicacion_sencilla:
-        contenido.append(Paragraph("En Pocas Palabras", estilo_seccion))
-        contenido.append(HRFlowable(width="100%", thickness=0.5, color=COLOR_VERDE, spaceAfter=8))
+        contenido.append(Spacer(1, 6))
         contenido.append(Paragraph(resultado.explicacion_sencilla, estilo_normal))
 
     # ── AVISO LEGAL ───────────────────────────────────────────────────────────

@@ -5,7 +5,9 @@ from services.analitica_evaluator import (
     evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango,
     corregir_alterados_dentro_de_rango, PATRON_NUMERO
 )
-from services.rango_referencia import calcular_posicion, describir_posicion, esta_cerca_del_limite, limpiar_valor
+from services.rango_referencia import (
+    calcular_posicion, describir_posicion, esta_cerca_del_limite, limpiar_valor, frase_valor
+)
 from reports.informe_generator import generar_informe_pdf
 from models.analitica_model import ResultadoAnalitica
 
@@ -404,9 +406,22 @@ def mostrar_resultados(resultado: ResultadoAnalitica, pdf_bytes: bytes):
             for rec in resultado.recomendaciones:
                 st.markdown(f"• {rec}")
 
+    st.divider()
+    st.subheader("🗣️ En pocas palabras")
+
+    if resultado.valores_alterados:
+        lineas = [f"Tienes **{len(resultado.valores_alterados)} valores fuera de lo normal**:"]
+        for valor in resultado.valores_alterados:
+            lineas.append(f"- **{valor.nombre}**: {frase_valor(valor.valor, valor.rango_normal)}")
+    else:
+        lineas = ["**Todos los valores con rango en el informe están dentro de lo normal.**"]
+    if resultado.valores_normales:
+        lineas.append(f"\n{len(resultado.valores_normales)} valores están dentro de lo normal.")
+    if resultado.valores_sin_rango:
+        lineas.append(f"\n{len(resultado.valores_sin_rango)} valores no tienen rango en el informe: consúltalos con tu médico.")
+    st.markdown("\n".join(lineas))
+
     if resultado.explicacion_sencilla:
-        st.divider()
-        st.subheader("🗣️ En pocas palabras")
         st.success(resultado.explicacion_sencilla)
 
     st.divider()

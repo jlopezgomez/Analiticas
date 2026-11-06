@@ -16,6 +16,35 @@ MIN_NUMEROS_LEGIBLES = 6
 # Más fotos alargan mucho la lectura y el análisis; una analítica rara vez pasa de unas pocas páginas
 MAX_FOTOS = 6
 
+# Streamlit no deja cambiar el texto del botón de subida ("Upload", en inglés), así que se cambia con CSS.
+# Va acotado por la clase st-key-<key> que Streamlit pone a cada widget con key.
+ESTILOS_SUBIDA = """
+<style>
+[data-testid="stFileUploaderDropzoneInstructions"] { display: none; }
+
+/* Solo el botón de subir/añadir: la "X" de quitar un archivo es kind="minimal" y se deja como está */
+[data-testid="stFileUploaderDropzone"] button:not([kind="minimal"]) > * { display: none; }
+[data-testid="stFileUploaderDropzone"] button:not([kind="minimal"]) { justify-content: center; }
+[data-testid="stFileUploaderDropzone"] button:not([kind="minimal"])::after { font-size: 1rem; font-weight: 600; }
+.st-key-analitica_pdf [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"])::after { content: "📄 Elegir PDF"; }
+.st-key-analitica_previa [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"])::after { content: "📄 Elegir PDF anterior"; }
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"])::after { content: "📷 Hacer foto"; }
+/* Con alguna foto ya puesta, el botón sirve para añadir la siguiente página */
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] button[aria-label="Add files"]::after { content: "📷 Añadir otra página"; }
+
+/* El botón de foto, grande y llamativo para que se vea a la primera en el móvil */
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] {
+    padding: 0; min-height: 0; border: none; background: transparent;
+}
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] > span,
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"]) { width: 100%; }
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"]) {
+    min-height: 3.5rem; background: #ff4b4b; border-color: #ff4b4b; color: white; border-radius: 0.5rem;
+}
+.st-key-analitica_foto [data-testid="stFileUploaderDropzone"] button:not([kind="minimal"])::after { font-size: 1.15rem; }
+</style>
+"""
+
 
 def main():
     st.set_page_config(
@@ -24,6 +53,7 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    st.markdown(ESTILOS_SUBIDA, unsafe_allow_html=True)
 
     st.title("🩸 Analizador de Analíticas de Sangre con IA")
     st.markdown("""
@@ -71,22 +101,21 @@ def procesar_entrada():
             st.caption(f"📄 Tamaño: {archivo_analitica.size:,} bytes")
 
     with tab_camara:
-        st.markdown("**Haz una foto a tu analítica con la cámara**")
-        st.caption(
-            "📱 En el móvil, pulsa el botón y elige **Cámara**: se abrirá la cámara del teléfono "
-            "a pantalla completa para que puedas encuadrar y enfocar bien."
+        st.markdown(
+            "**Cómo hacer la foto:**\n"
+            "1. Pulsa el botón rojo **📷 Hacer foto**.\n"
+            "2. En el menú que aparece, elige **Hacer foto** (iPhone) o **Cámara** (Android).\n"
+            "3. ¿Tu analítica tiene más páginas? Vuelve a pulsar el botón y haz una foto de cada una: "
+            "se analizarán todas juntas."
         )
-        st.caption(
-            "📑 ¿Tu analítica tiene varias páginas? Haz una foto de cada página: puedes añadir "
-            "varias fotos y se analizarán juntas como una sola analítica."
-        )
-        st.caption("💡 Consejos: buena iluminación, sin reflejos, texto enfocado y la hoja plana.")
+        st.caption("💡 Consejos: buena luz, sin reflejos, la hoja plana y el texto enfocado.")
         imagenes_subidas = st.file_uploader(
-            "Hacer fotos o elegir imágenes:",
+            "Fotos de tu analítica:",
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
             key="analitica_foto",
-            help="Apunta la cámara a tu analítica y asegúrate de que el texto sea legible."
+            help="También puedes elegir fotos que ya tengas en la galería.",
+            label_visibility="collapsed"
         )
 
         imagen_webcam = None

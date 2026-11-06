@@ -7,6 +7,8 @@ from PIL import Image
 
 from services.ocr_processor import abrir_imagen, enderezar_automaticamente, extraer_texto_imagen
 
+# Modelo que lee las fotos: gpt-4o lee mejor y más rápido las fotos de móvil que gpt-4o-mini
+MODELO_VISION = "gpt-4o"
 # Lado mayor con el que se envía la foto: suficiente para leer números pequeños sin gastar de más
 LADO_MAXIMO = 2000
 
@@ -35,7 +37,7 @@ def _imagen_a_data_url(imagen: Image.Image) -> str:
 
 def transcribir_con_ia(imagen: Image.Image) -> str:
     """Pide al modelo de visión que copie literalmente los resultados de la foto."""
-    modelo = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    modelo = ChatOpenAI(model=MODELO_VISION, temperature=0)
     respuesta = modelo.invoke([
         SystemMessage(content=INSTRUCCIONES_TRANSCRIPCION),
         HumanMessage(content=[

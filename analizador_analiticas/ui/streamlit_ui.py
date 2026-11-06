@@ -1,6 +1,6 @@
 import streamlit as st
 from services.pdf_processor import extraer_texto_pdf
-from services.ocr_processor import extraer_texto_imagen
+from services.ocr_processor import extraer_texto_imagen, abrir_imagen
 from services.analitica_evaluator import (
     evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango,
     corregir_alterados_dentro_de_rango, PATRON_NUMERO
@@ -108,7 +108,7 @@ def procesar_entrada():
             "3. ¿Tu analítica tiene más páginas? Vuelve a pulsar el botón y haz una foto de cada una: "
             "se analizarán todas juntas."
         )
-        st.caption("💡 Consejos: buena luz, sin reflejos, la hoja plana y el texto enfocado.")
+        st.caption("💡 Consejos: móvil en vertical, buena luz, sin reflejos, la hoja plana y el texto enfocado.")
         imagenes_subidas = st.file_uploader(
             "Fotos de tu analítica:",
             type=["jpg", "jpeg", "png"],
@@ -136,10 +136,18 @@ def procesar_entrada():
             imagenes_analitica = imagenes_analitica[:MAX_FOTOS]
 
         if imagenes_analitica:
-            st.success(f"✅ {len(imagenes_analitica)} foto(s) cargada(s). Revisa que el texto se lea bien.")
+            st.success(
+                f"✅ {len(imagenes_analitica)} foto(s) cargada(s). Revisa que el texto se lea bien "
+                "y que la foto esté derecha: si no, pulsa ↻ Girar."
+            )
+            giros = st.session_state.setdefault("giros", {})
             columnas = st.columns(min(len(imagenes_analitica), 3))
             for i, imagen in enumerate(imagenes_analitica):
-                columnas[i % len(columnas)].image(imagen, caption=f"Foto {i + 1}")
+                clave = id_foto(imagen)
+                with columnas[i % len(columnas)]:
+                    if st.button("↻ Girar", key=f"girar_{clave}", use_container_width=True):
+                        giros[clave] = (giros.get(clave, 0) + 90) % 360
+                    st.image(abrir_imagen(imagen, giros.get(clave, 0)), caption=f"Foto {i + 1}")
 
     st.markdown("---")
 
@@ -207,13 +215,19 @@ def mostrar_area_resultados():
         """)
 
 
+def id_foto(imagen) -> str:
+    """Identificador estable de una foto subida, para recordar cuánto la ha girado el usuario."""
+    return getattr(imagen, "file_id", None) or f"{getattr(imagen, 'name', 'foto')}-{len(imagen.getvalue())}"
+
+
 def leer_fotos(imagenes, estado, barra) -> str:
     """Lee todas las fotos con OCR y junta su texto, marcando de qué foto viene cada parte."""
+    giros = st.session_state.get("giros", {})
     textos = []
     for i, imagen in enumerate(imagenes, start=1):
         estado.text(f"📷 Leyendo foto {i} de {len(imagenes)}...")
         barra.progress(5 + int(25 * i / len(imagenes)))
-        texto = extraer_texto_imagen(imagen)
+        texto = extraer_texto_imagen(imagen, giros.get(id_foto(imagen), 0))
         if texto.startswith("Error"):
             st.warning(f"⚠️ Foto {i}: {texto.removeprefix('Error: ')} Se analizarán las demás.")
             continue

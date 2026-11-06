@@ -1,6 +1,7 @@
 import streamlit as st
 from services.pdf_processor import extraer_texto_pdf
-from services.ocr_processor import extraer_texto_imagen, abrir_imagen
+from services.ocr_processor import abrir_imagen
+from services.vision_processor import leer_texto_foto
 from services.analitica_evaluator import (
     evaluar_analitica, descartar_valores_no_presentes, separar_valores_sin_rango,
     corregir_alterados_dentro_de_rango, PATRON_NUMERO
@@ -227,7 +228,12 @@ def leer_fotos(imagenes, estado, barra) -> str:
     for i, imagen in enumerate(imagenes, start=1):
         estado.text(f"📷 Leyendo foto {i} de {len(imagenes)}...")
         barra.progress(5 + int(25 * i / len(imagenes)))
-        texto = extraer_texto_imagen(imagen, giros.get(id_foto(imagen), 0))
+        texto, metodo = leer_texto_foto(imagen, giros.get(id_foto(imagen), 0))
+        if metodo == "Tesseract":
+            st.warning(
+                f"⚠️ Foto {i}: no se pudo leer con la IA y se ha usado el lector básico, "
+                "que es menos fiable con fotos. Revisa el texto leído."
+            )
         if texto.startswith("Error"):
             st.warning(f"⚠️ Foto {i}: {texto.removeprefix('Error: ')} Se analizarán las demás.")
             continue

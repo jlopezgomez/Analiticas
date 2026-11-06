@@ -228,7 +228,12 @@ def leer_fotos(imagenes, estado, barra) -> str:
     for i, imagen in enumerate(imagenes, start=1):
         estado.text(f"📷 Leyendo foto {i} de {len(imagenes)}...")
         barra.progress(5 + int(25 * i / len(imagenes)))
-        texto, metodo = leer_texto_foto(imagen, giros.get(id_foto(imagen), 0))
+        texto, metodo, dudosas = leer_texto_foto(imagen, giros.get(id_foto(imagen), 0))
+        if dudosas:
+            st.warning(
+                f"⚠️ Foto {i}: no se ha podido leer con seguridad {', '.join(dudosas)}, así que no se "
+                "usa para no darte un dato equivocado. Si lo necesitas, repite la foto más cerca y con más luz."
+            )
         if metodo == "Tesseract":
             st.warning(
                 f"⚠️ Foto {i}: no se pudo leer con la IA y se ha usado el lector básico, "

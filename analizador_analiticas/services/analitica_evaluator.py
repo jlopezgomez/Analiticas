@@ -15,8 +15,10 @@ def _numeros_en(texto: str) -> set[float]:
 def _valor_aparece_en_texto(valor: str, numeros_texto: set[float], texto_lower: str) -> bool:
     numeros_valor = PATRON_NUMERO.findall(valor)
     if not numeros_valor:
-        # Valores cualitativos ("Negativo", "Positivo"...): deben aparecer como palabra en el texto
-        return valor.strip().lower() in texto_lower
+        # Valores cualitativos ("Negativo", "Positivo"...): deben ser una palabra de verdad y aparecer
+        # en el texto. Una marca suelta como "*" no es un resultado: falta el número
+        palabra = valor.strip().lower()
+        return len(re.findall(r"[a-záéíóúñ]", palabra)) >= 3 and palabra in texto_lower
     return float(numeros_valor[0].replace(",", ".")) in numeros_texto
 
 
@@ -86,7 +88,8 @@ def separar_valores_sin_rango(resultado: ResultadoAnalitica, texto_analitica: st
 def corregir_alterados_dentro_de_rango(resultado: ResultadoAnalitica) -> list[str]:
     """
     Pasa a normales los valores que la IA marcó como alterados pero que, según los números
-    del rango del informe, están dentro de él.
+    del rango del informe, están dentro de él. En los que sí están fuera, fija "Alto" o "Bajo"
+    según los números, no según lo que diga la IA.
 
     Returns:
         Nombres de los parámetros corregidos.
@@ -101,6 +104,8 @@ def corregir_alterados_dentro_de_rango(resultado: ResultadoAnalitica) -> list[st
             )
             corregidos.append(valor.nombre)
         else:
+            if posicion is not None:
+                valor.tipo_alteracion = "Alto" if posicion.estado == "por_encima" else "Bajo"
             conservados.append(valor)
     resultado.valores_alterados[:] = conservados
     return corregidos
